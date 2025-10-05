@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: WeSign API
+  description: Digital signature and document management via WeSign
+  version: 1.0.0
+servers:
+  - url: https://f1b9a644065e.ngrok-free.app
+paths:
+  /execute:
+    post:
+      operationId: executeWeSignTool
+      summary: Execute any WeSign tool
+      description: Execute WeSign operations like listing templates, managing documents, sending for signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tool
+              properties:
+                tool:
+                  type: string
+                  description: The WeSign tool to execute
+                  example: wesign_list_templates
+                parameters:
+                  type: object
+                  description: Tool-specific parameters
+                  example:
+                    offset: 0
+                    limit: 10
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object

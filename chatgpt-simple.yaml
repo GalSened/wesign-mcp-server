@@ -1,0 +1,55 @@
+openapi: 3.1.0
+info:
+  title: WeSign API
+  version: 1.0.0
+  description: WeSign digital signature API
+servers:
+  - url: https://f1b9a644065e.ngrok-free.app
+paths:
+  /execute:
+    post:
+      operationId: executeTool
+      summary: Execute WeSign tool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tool:
+                  type: string
+                  description: The WeSign tool to execute
+                parameters:
+                  type: object
+                  description: Tool parameters
+              required:
+                - tool
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Check server health
+      responses:
+        "200":
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  authenticated:
+                    type: boolean

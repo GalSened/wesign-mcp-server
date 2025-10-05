@@ -1,0 +1,7 @@
+{
+  "tool": "wesign_create_contact_group",
+  "parameters": {
+    "name": "Sales Team",
+    "description": "All sales department contacts"
+  }
+}

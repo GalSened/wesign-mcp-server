@@ -1,0 +1,10 @@
+{
+  "tool": "wesign_create_contact",
+  "parameters": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@example.com",
+    "phone": "+1234567890",
+    "company": "Acme Corp"
+  }
+}

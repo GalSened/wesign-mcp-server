@@ -1,0 +1,191 @@
+openapi: 3.0.0
+info:
+  title: WeSign MCP Server API
+  version: 1.0.0
+  description: Digital signature and document management via WeSign
+
+servers:
+  - url: https://f1b9a644065e.ngrok-free.app
+    description: ngrok tunnel to WeSign MCP Server
+
+paths:
+  /execute:
+    post:
+      summary: Execute WeSign tool
+      operationId: executeTool
+      description: Execute any WeSign tool (login, templates, documents, signing, etc.)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tool:
+                  type: string
+                  description: Tool name to execute
+                  enum:
+                    - wesign_login
+                    - wesign_logout
+                    - wesign_refresh_token
+                    - wesign_list_templates
+                    - wesign_get_template
+                    - wesign_create_template
+                    - wesign_use_template
+                    - wesign_update_template_fields
+                    - wesign_list_documents
+                    - wesign_get_document_info
+                    - wesign_upload_document
+                    - wesign_create_document_collection
+                    - wesign_download_document
+                    - wesign_send_document_for_signing
+                    - wesign_send_for_signature
+                    - wesign_send_simple_document
+                    - wesign_create_self_sign
+                    - wesign_add_signature_fields
+                    - wesign_complete_signing
+                    - wesign_get_signing_status
+                    - wesign_resend_to_signer
+                    - wesign_replace_signer
+                    - wesign_cancel_document
+                    - wesign_reactivate_document
+                    - wesign_share_document
+                    - wesign_get_signer_link
+                    - wesign_get_user_info
+                    - wesign_update_user_info
+                    - wesign_check_auth_status
+                  example: "wesign_list_templates"
+                parameters:
+                  type: object
+                  description: Tool-specific parameters
+                  additionalProperties: true
+                  example:
+                    offset: 0
+                    limit: 10
+              required:
+                - tool
+            examples:
+              listTemplates:
+                summary: List templates
+                value:
+                  tool: "wesign_list_templates"
+                  parameters:
+                    offset: 0
+                    limit: 10
+              getUserInfo:
+                summary: Get user info
+                value:
+                  tool: "wesign_get_user_info"
+                  parameters: {}
+              sendDocument:
+                summary: Send document for signing
+                value:
+                  tool: "wesign_send_document_for_signing"
+                  parameters:
+                    filePath: "C:\\path\\to\\document.pdf"
+                    signerName: "John Doe"
+                    signerPhone: "0524455586"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: Whether the operation succeeded
+                  data:
+                    type: object
+                    description: Result data from the tool execution
+                    additionalProperties: true
+              examples:
+                successResponse:
+                  summary: Successful tool execution
+                  value:
+                    success: true
+                    data:
+                      templates:
+                        - name: "Template 1"
+                          id: "abc123"
+                        - name: "Template 2"
+                          id: "def456"
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Tool name is required"
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Tool execution failed"
+
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      description: Check if the server is running and authenticated
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  authenticated:
+                    type: boolean
+                    example: true
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /tools:
+    get:
+      summary: List available tools
+      operationId: listTools
+      description: Get a list of all available WeSign tools
+      responses:
+        '200':
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  count:
+                    type: integer
+                    example: 32
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        description:
+                          type: string

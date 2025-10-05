@@ -1,0 +1,10 @@
+{
+  "tool": "wesign_merge_documents",
+  "parameters": {
+    "name": "Merged Contract Package",
+    "documentCollectionIds": [
+      "collection-id-1",
+      "collection-id-2"
+    ]
+  }
+}

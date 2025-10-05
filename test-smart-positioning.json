@@ -1,0 +1,26 @@
+{
+  "tool": "wesign_add_field_smart",
+  "parameters": {
+    "templateId": "f3e76bda-4ba1-41e2-a6e0-a9fad2c82eeb",
+    "fields": [
+      {
+        "type": "signature",
+        "name": "Signature_Bottom_Center",
+        "page": 1,
+        "position": "bottom center"
+      },
+      {
+        "type": "initials",
+        "name": "Initials_Top_Right",
+        "page": 1,
+        "position": "top right corner"
+      },
+      {
+        "type": "date",
+        "name": "Date_Lower_Left",
+        "page": 1,
+        "position": "lower left"
+      }
+    ]
+  }
+}

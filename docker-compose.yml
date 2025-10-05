@@ -1,0 +1,27 @@
+services:
+  wesign-mcp:
+    build: .
+    container_name: wesign-mcp-server
+    ports:
+      - "8080:8080"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - WESIGN_API_URL=https://wse.comsigntrust.com
+      - WESIGN_EMAIL=nirk@comsign.co.il
+      - WESIGN_PASSWORD=Comsign1!
+      - WESIGN_PERSISTENT=false
+      # Optional: Add API key for security
+      # - API_KEY=your-secret-api-key-here
+      # Optional: Configure CORS
+      # - CORS_ORIGIN=https://chat.openai.com
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

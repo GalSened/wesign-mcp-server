@@ -1,0 +1,6 @@
+{
+  "tool": "wesign_list_contacts",
+  "parameters": {
+    "limit": 50
+  }
+}
