@@ -309,3 +309,61 @@ app.listen(PORT, () => {
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`Server info: http://localhost:${PORT}/`);
 });
+// Serve OpenAPI spec for ChatGPT Custom GPT Actions
+app.get('/openapi-chatgpt.yaml', (req, res) => {
+  const yaml = `openapi: 3.1.0
+info:
+  title: WeSign Digital Signature API
+  description: Digital signature and document management with beautiful visual widgets
+  version: 2.0.0
+servers:
+  - url: ${req.protocol}://${req.get('host')}
+    description: WeSign Server
+
+paths:
+  /execute:
+    post:
+      operationId: executeWeSignTool
+      summary: Execute any WeSign tool
+      description: Execute WeSign tools like listing documents, templates, sending for signature, etc.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["tool"]
+              properties:
+                tool:
+                  type: string
+                  description: "Tool name (e.g., wesign_get_user_info, wesign_list_documents)"
+                parameters:
+                  type: object
+                  description: "Tool-specific parameters"
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Successful tool execution
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Check server health
+      responses:
+        '200':
+          description: Server is healthy`;
+
+  res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.send(yaml);
+});
+
