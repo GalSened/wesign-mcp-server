@@ -205,6 +205,34 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Tools list endpoint (for orchestrator and other clients)
+app.get('/tools', async (req, res) => {
+  try {
+    const allTools = [
+      ...authTools.getTools(),
+      ...documentTools.getTools(),
+      ...signingTools.getTools(),
+      ...templateAdminTools.getTools(),
+      ...templateAdminTools.getSimpleTools(),
+      ...multiPartyTools.getTools(),
+      ...smartFieldTools.getTools()
+    ];
+
+    res.json({
+      success: true,
+      tools: allTools,
+      count: allTools.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error listing tools:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to list tools'
+    });
+  }
+});
+
 // REST API endpoint (for ChatGPT Plus Custom GPT Actions)
 app.post('/execute', async (req, res) => {
   try {
@@ -302,7 +330,7 @@ app.get('/', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`WeSign MCP HTTP Server listening on port ${PORT}`);
   console.log(`MCP endpoint: http://localhost:${PORT}/mcp`);

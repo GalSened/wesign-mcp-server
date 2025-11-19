@@ -6,8 +6,79 @@ import fs from 'fs-extra';
 import * as path from 'path';
 import mime from 'mime-types';
 
+// 6-Position Field System - Predefined positions for easy field placement
+type FieldPosition = 'top-left' | 'center-left' | 'bottom-left' | 'top-right' | 'center-right' | 'bottom-right';
+
+interface PositionCoordinates {
+  x: number;
+  y: number;
+}
+
+// Standard field dimensions
+const STANDARD_FIELD_WIDTH = 200;
+const STANDARD_FIELD_HEIGHT = 50;
+
+// Predefined position coordinates (for standard letter size: 612x792 points)
+const FIELD_POSITION_COORDS: Record<FieldPosition, PositionCoordinates> = {
+  'top-left': { x: 50, y: 100 },
+  'center-left': { x: 50, y: 370 },
+  'bottom-left': { x: 50, y: 650 },
+  'top-right': { x: 350, y: 100 },
+  'center-right': { x: 350, y: 370 },
+  'bottom-right': { x: 350, y: 650 }
+};
+
+const POSITION_LABELS: Record<FieldPosition, string> = {
+  'top-left': 'Top Left',
+  'center-left': 'Center Left',
+  'bottom-left': 'Bottom Left',
+  'top-right': 'Top Right',
+  'center-right': 'Center Right',
+  'bottom-right': 'Bottom Right'
+};
+
 export class SigningTools {
   constructor(private client: WeSignClient) {}
+
+  /**
+   * Create a signature field from a predefined position name
+   */
+  private createFieldFromPosition(
+    position: FieldPosition,
+    pageNumber: number,
+    fieldType: FieldType = 1,
+    width: number = STANDARD_FIELD_WIDTH,
+    height: number = STANDARD_FIELD_HEIGHT
+  ): SignatureField {
+    const coords = FIELD_POSITION_COORDS[position];
+    if (!coords) {
+      throw new Error(`Invalid position: ${position}. Valid positions: ${Object.keys(FIELD_POSITION_COORDS).join(', ')}`);
+    }
+
+    return {
+      x: coords.x,
+      y: coords.y,
+      width,
+      height,
+      pageNumber,
+      fieldType
+    };
+  }
+
+  /**
+   * Create signature fields for multiple pages at the same position
+   */
+  private createFieldsForPages(
+    position: FieldPosition,
+    numPages: number,
+    fieldType: FieldType = 1
+  ): SignatureField[] {
+    const fields: SignatureField[] = [];
+    for (let page = 1; page <= numPages; page++) {
+      fields.push(this.createFieldFromPosition(position, page, fieldType));
+    }
+    return fields;
+  }
 
   getTools(): Tool[] {
     return [
@@ -69,6 +140,40 @@ export class SigningTools {
             }
           },
           required: ['documentCollectionId', 'documentId', 'fields']
+        }
+      },
+      {
+        name: 'wesign_add_fields_by_position',
+        description: 'Add signature fields using predefined positions (top-left, center-left, bottom-left, top-right, center-right, bottom-right). This is the easiest way to add fields - just specify position and number of pages!',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            documentCollectionId: {
+              type: 'string',
+              description: 'ID of the document collection'
+            },
+            documentId: {
+              type: 'string',
+              description: 'ID of the specific document'
+            },
+            position: {
+              type: 'string',
+              description: 'Predefined position on the page',
+              enum: ['top-left', 'center-left', 'bottom-left', 'top-right', 'center-right', 'bottom-right']
+            },
+            numPages: {
+              type: 'number',
+              description: 'Number of pages to add fields to (starting from page 1)',
+              minimum: 1
+            },
+            fieldType: {
+              type: 'number',
+              description: 'Field type: 1=Signature (default), 2=Initial, 3=Text, 4=Date, 5=Checkbox',
+              enum: [1, 2, 3, 4, 5],
+              default: 1
+            }
+          },
+          required: ['documentCollectionId', 'documentId', 'position', 'numPages']
         }
       },
       {
@@ -177,6 +282,15 @@ export class SigningTools {
       case 'wesign_add_signature_fields':
         return await this.addSignatureFields(args.documentCollectionId, args.documentId, args.fields);
 
+      case 'wesign_add_fields_by_position':
+        return await this.addFieldsByPosition(
+          args.documentCollectionId,
+          args.documentId,
+          args.position,
+          args.numPages,
+          args.fieldType || 1
+        );
+
       case 'wesign_complete_signing':
         return await this.completeSigning(args.documentCollectionId, args.documentId, args.savePath);
 
@@ -268,6 +382,64 @@ export class SigningTools {
       };
     } catch (error: any) {
       throw new Error(`Failed to add signature fields: ${error.message}`);
+    }
+  }
+
+  private async addFieldsByPosition(
+    documentCollectionId: string,
+    documentId: string,
+    position: FieldPosition,
+    numPages: number,
+    fieldType: FieldType = 1
+  ): Promise<any> {
+    try {
+      // Validate position
+      if (!FIELD_POSITION_COORDS[position]) {
+        throw new Error(`Invalid position: ${position}. Valid positions: ${Object.keys(FIELD_POSITION_COORDS).join(', ')}`);
+      }
+
+      // Validate field type
+      if (!this.isValidFieldType(fieldType)) {
+        throw new Error(`Invalid field type: ${fieldType}. Must be 1-5 (Signature, Initial, Text, Date, Checkbox)`);
+      }
+
+      // Validate number of pages
+      if (numPages < 1) {
+        throw new Error('Number of pages must be 1 or greater');
+      }
+
+      // Create fields using position helper
+      const fields = this.createFieldsForPages(position, numPages, fieldType);
+
+      // Use the existing addSignatureFields logic
+      const result = await this.client.updateSelfSignDocument({
+        documentCollectionId: documentCollectionId,
+        documentId: documentId,
+        fields: fields,
+        operation: DocumentOperation.Save
+      });
+
+      const positionLabel = POSITION_LABELS[position];
+      const fieldTypeName = this.getFieldTypeName(fieldType);
+
+      return {
+        success: result.success,
+        message: `Added ${fields.length} ${fieldTypeName.toLowerCase()} fields at ${positionLabel} position`,
+        position: positionLabel,
+        positionKey: position,
+        coordinates: FIELD_POSITION_COORDS[position],
+        fieldsAdded: fields.length,
+        fieldType: fieldTypeName,
+        pages: numPages,
+        fields: fields.map(field => ({
+          type: fieldTypeName,
+          position: `${positionLabel} (${field.x}, ${field.y})`,
+          size: `${field.width}x${field.height}`,
+          page: field.pageNumber
+        }))
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to add fields by position: ${error.message}`);
     }
   }
 
