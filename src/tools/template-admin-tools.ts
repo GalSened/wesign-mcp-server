@@ -12,21 +12,21 @@ export class TemplateAdminTools {
       // Template Tools
       {
         name: 'wesign_create_template',
-        description: 'Create a reusable document template from a file',
+        description: 'Create a reusable document template from a file | צור תבנית מסמך לשימוש חוזר מקובץ',
         inputSchema: {
           type: 'object',
           properties: {
             filePath: {
               type: 'string',
-              description: 'Path to the template file'
+              description: 'Path to the template file | נתיב לקובץ התבנית'
             },
             name: {
               type: 'string',
-              description: 'Name for the template'
+              description: 'Name for the template | שם לתבנית'
             },
             description: {
               type: 'string',
-              description: 'Optional description for the template'
+              description: 'Optional description for the template | תיאור אופציונלי לתבנית'
             }
           },
           required: ['filePath', 'name']
@@ -34,18 +34,18 @@ export class TemplateAdminTools {
       },
       {
         name: 'wesign_list_templates',
-        description: 'List available document templates',
+        description: 'List available document templates | הצג רשימת תבניות מסמכים זמינות',
         inputSchema: {
           type: 'object',
           properties: {
             offset: {
               type: 'number',
-              description: 'Number of records to skip (default: 0)',
+              description: 'Number of records to skip (default: 0) | מספר רשומות לדלג עליהן (ברירת מחדל: 0)',
               default: 0
             },
             limit: {
               type: 'number',
-              description: 'Maximum number of records to return (default: 50)',
+              description: 'Maximum number of records to return (default: 50) | מספר מקסימלי של רשומות להחזיר (ברירת מחדל: 50)',
               default: 50
             }
           }
@@ -53,13 +53,13 @@ export class TemplateAdminTools {
       },
       {
         name: 'wesign_get_template',
-        description: 'Get detailed information about a specific template',
+        description: 'Get detailed information about a specific template | קבל מידע מפורט על תבנית מסוימת',
         inputSchema: {
           type: 'object',
           properties: {
             templateId: {
               type: 'string',
-              description: 'ID of the template'
+              description: 'ID of the template | מזהה התבנית'
             }
           },
           required: ['templateId']
@@ -67,17 +67,17 @@ export class TemplateAdminTools {
       },
       {
         name: 'wesign_use_template',
-        description: 'Create a new document from a template for self-signing',
+        description: 'Create a new document from a template for self-signing | צור מסמך חדש מתבנית לחתימה עצמית',
         inputSchema: {
           type: 'object',
           properties: {
             templateId: {
               type: 'string',
-              description: 'ID of the template to use'
+              description: 'ID of the template to use | מזהה התבנית לשימוש'
             },
             documentName: {
               type: 'string',
-              description: 'Name for the new document'
+              description: 'Name for the new document | שם למסמך החדש'
             }
           },
           required: ['templateId', 'documentName']
@@ -85,7 +85,7 @@ export class TemplateAdminTools {
       },
       {
         name: 'wesign_update_template_fields',
-        description: 'Add signature fields and other form fields to a template. Use this to position fields on specific pages before sending for signature.',
+        description: 'Add signature fields and other form fields to a template. Use this to position fields on specific pages before sending for signature. | הוסף שדות חתימה ושדות טופס אחרים לתבנית. השתמש בזה למיקום שדות בעמודים מסוימים לפני שליחה לחתימה.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -117,7 +117,7 @@ export class TemplateAdminTools {
       // User & Admin Tools
       {
         name: 'wesign_get_user_info',
-        description: 'Get current user information and account details',
+        description: 'Get current user information and account details | קבל מידע על המשתמש הנוכחי ופרטי החשבון',
         inputSchema: {
           type: 'object',
           properties: {}
@@ -125,7 +125,7 @@ export class TemplateAdminTools {
       },
       {
         name: 'wesign_update_user_info',
-        description: 'Update current user information',
+        description: 'Update current user information | עדכן מידע על המשתמש הנוכחי',
         inputSchema: {
           type: 'object',
           properties: {
@@ -153,7 +153,7 @@ export class TemplateAdminTools {
       // Bulk Operations
       {
         name: 'wesign_extract_signers_from_excel',
-        description: 'Extract signer information from an Excel file for bulk distribution',
+        description: 'Extract signer information from an Excel file for bulk distribution | חלץ מידע על חותמים מקובץ אקסל להפצה המונית',
         inputSchema: {
           type: 'object',
           properties: {
@@ -168,7 +168,7 @@ export class TemplateAdminTools {
       // Authentication Status
       {
         name: 'wesign_check_auth_status',
-        description: 'Check current authentication status',
+        description: 'Check current authentication status | בדוק סטטוס אימות נוכחי',
         inputSchema: {
           type: 'object',
           properties: {}
@@ -181,7 +181,7 @@ export class TemplateAdminTools {
     return [
       {
         name: 'wesign_send_document_for_signing',
-        description: 'Complete workflow: Upload PDF, add signature fields to all pages automatically, and send for signature. Simple natural language interface.',
+        description: 'Complete workflow: Upload PDF, add signature fields to all pages automatically, and send for signature. Simple natural language interface. | תהליך מלא: העלה PDF, הוסף שדות חתימה לכל הדפים אוטומטית, ושלח לחתימה. ממשק פשוט בשפה טבעית.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -357,30 +357,29 @@ export class TemplateAdminTools {
 
   private async useTemplate(templateId: string, documentName: string): Promise<any> {
     try {
-      // Get template first to verify it exists
-      const template = await this.client.getTemplate(templateId);
+      // Download template PDF (the getTemplate endpoint doesn't work - returns 405)
+      const pdfBuffer = await this.client.downloadTemplate(templateId);
 
-      if (!template.base64File) {
-        throw new Error('Template file not available');
-      }
+      // Convert PDF to base64 with proper data URI format
+      const base64Content = pdfBuffer.toString('base64');
+      const base64File = `data:application/pdf;base64,${base64Content}`;
 
       // Create self-sign document from template
       const result = await this.client.createSelfSignDocument({
         name: documentName,
-        base64File: template.base64File,
+        base64File: base64File,
         sourceTemplateId: templateId
       });
 
       return {
         success: true,
-        message: `Document "${documentName}" created from template "${template.name}"`,
+        message: `Document "${documentName}" created from template`,
         documentCollectionId: result.documentCollectionId,
         documentId: result.documentId,
         documentName: result.name,
         pagesCount: result.pagesCount,
         sourceTemplate: {
-          id: template.id,
-          name: template.name
+          id: templateId
         }
       };
     } catch (error: any) {

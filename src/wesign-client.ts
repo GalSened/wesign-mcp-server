@@ -34,26 +34,44 @@ export class WeSignClient {
     this.apiUrl = config.apiUrl.replace(/\/$/, ''); // Remove trailing slash
 
     this.httpClient = axios.create({
-      baseURL: `${this.apiUrl}/userapi/v3`, // ✅ FIXED: Changed to /userapi/v3 (confirmed via DevTools)
+      baseURL: `${this.apiUrl}/userapi/v3`,
       timeout: 30000,
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       }
     });
 
-    // Add request interceptor for authentication
+    // Add request interceptor for authentication and debugging
     this.httpClient.interceptors.request.use((config) => {
+      // Log full request details for debugging
+      console.error('=== Axios Request Debug ===');
+      console.error('Method:', config.method?.toUpperCase());
+      console.error('Full URL:', `${config.baseURL}${config.url}`);
+      console.error('Headers:', JSON.stringify(config.headers, null, 2));
+      console.error('Data:', JSON.stringify(config.data, null, 2));
+      console.error('========================');
+
       if (this.tokens?.accessToken && config.headers) {
         config.headers.Authorization = `Bearer ${this.tokens.accessToken}`;
       }
       return config;
     });
 
-    // Add response interceptor for token refresh
+    // Add response interceptor for token refresh and error logging
     this.httpClient.interceptors.response.use(
       (response) => response,
       async (error) => {
+        // Log detailed error information for all errors
+        console.error('=== Axios Response Error Debug ===');
+        console.error('Method:', error.config?.method?.toUpperCase());
+        console.error('URL:', `${error.config?.baseURL}${error.config?.url}`);
+        console.error('Status:', error.response?.status);
+        console.error('Status Text:', error.response?.statusText);
+        console.error('Response Headers:', JSON.stringify(error.response?.headers, null, 2));
+        console.error('Response Data:', JSON.stringify(error.response?.data, null, 2));
+        console.error('Error Message:', error.message);
+        console.error('===================================');
+
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry && this.tokens?.refreshToken) {
@@ -80,12 +98,16 @@ export class WeSignClient {
   async login(email: string, password: string, persistent: boolean = false): Promise<LoginResult> {
     try {
       const response = await this.httpClient.post<any>('/users/login', {
-        Email: email,
-        Password: password
+        email: email,
+        password: password
       });
 
       // Debug: Log response structure
-      console.error('Login response data:', JSON.stringify(response.data, null, 2));
+      console.error('=== Login Response Debug ===');
+      console.error('Status:', response.status);
+      console.error('Headers:', JSON.stringify(response.headers, null, 2));
+      console.error('Data:', JSON.stringify(response.data, null, 2));
+      console.error('===========================');
 
       // Handle actual API response format (no "success" field)
       if (response.data.token) {
@@ -118,7 +140,14 @@ export class WeSignClient {
         refreshToken: '',
         authToken: ''
       };
-    } catch (error) {
+    } catch (error: any) {
+      console.error('=== Login Error Debug ===');
+      console.error('Error status:', error.response?.status);
+      console.error('Error statusText:', error.response?.statusText);
+      console.error('Error headers:', JSON.stringify(error.response?.headers, null, 2));
+      console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('Error message:', error.message);
+      console.error('========================');
       throw new Error(`Login failed: ${this.getErrorMessage(error)}`);
     }
   }
@@ -213,10 +242,28 @@ export class WeSignClient {
   // Document Collection Methods
   async getDocumentCollections(offset: number = 0, limit: number = 50): Promise<DocumentCollection[]> {
     try {
-      const response = await this.httpClient.get<DocumentCollection[]>('/documentcollections', {
+      const response = await this.httpClient.get<any>('/documentcollections', {
         params: { offset, limit }
       });
-      return response.data;
+
+      // Handle different API response formats
+      let collections: any;
+      if (Array.isArray(response.data)) {
+        // Direct array response
+        collections = response.data;
+      } else if (response.data && typeof response.data === 'object') {
+        // Object with nested array - try common property names
+        collections = response.data.documentCollections ||
+                     response.data.collections ||
+                     response.data.data ||
+                     response.data.items ||
+                     [];
+      } else {
+        collections = [];
+      }
+
+      // Ensure we return an array
+      return Array.isArray(collections) ? collections : [];
     } catch (error) {
       throw new Error(`Failed to get document collections: ${this.getErrorMessage(error)}`);
     }
@@ -271,6 +318,17 @@ export class WeSignClient {
       return response.data;
     } catch (error) {
       throw new Error(`Failed to get template: ${this.getErrorMessage(error)}`);
+    }
+  }
+
+  async downloadTemplate(id: string): Promise<Buffer> {
+    try {
+      const response = await this.httpClient.get(`/templates/${id}/download`, {
+        responseType: 'arraybuffer'
+      });
+      return Buffer.from(response.data);
+    } catch (error) {
+      throw new Error(`Failed to download template: ${this.getErrorMessage(error)}`);
     }
   }
 
@@ -516,7 +574,22 @@ export class WeSignClient {
   // Contact Management Methods
   async createContact(dto: CreateContactDTO): Promise<Contact> {
     try {
-      const response = await this.httpClient.post<Contact>('/contacts', dto);
+      // Transform DTO to match API expectations
+      const apiRequest: any = {
+        Name: `${dto.firstName} ${dto.lastName}`.trim(),
+        // Determine DefaultSendingMethod based on available contact info
+        // 1 = SMS (if phone provided), 2 = Email (if email provided)
+        DefaultSendingMethod: dto.phone ? 1 : (dto.email ? 2 : 1)
+      };
+
+      // Add optional fields if provided
+      if (dto.email) apiRequest.Email = dto.email;
+      if (dto.phone) apiRequest.Phone = dto.phone;
+      if (dto.company) apiRequest.Company = dto.company;
+      if (dto.notes) apiRequest.SearchTag = dto.notes; // API uses SearchTag for notes
+      if (dto.groupId) apiRequest.GroupId = dto.groupId;
+
+      const response = await this.httpClient.post<Contact>('/contacts', apiRequest);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to create contact: ${this.getErrorMessage(error)}`);
@@ -525,7 +598,23 @@ export class WeSignClient {
 
   async createContactsBulk(contacts: CreateContactDTO[]): Promise<Contact[]> {
     try {
-      const response = await this.httpClient.post<Contact[]>('/contacts/bulk', { contacts });
+      // Transform each contact DTO to match API expectations
+      const apiContacts = contacts.map(dto => {
+        const apiRequest: any = {
+          Name: `${dto.firstName} ${dto.lastName}`.trim(),
+          DefaultSendingMethod: dto.phone ? 1 : (dto.email ? 2 : 1)
+        };
+
+        if (dto.email) apiRequest.Email = dto.email;
+        if (dto.phone) apiRequest.Phone = dto.phone;
+        if (dto.company) apiRequest.Company = dto.company;
+        if (dto.notes) apiRequest.SearchTag = dto.notes;
+        if (dto.groupId) apiRequest.GroupId = dto.groupId;
+
+        return apiRequest;
+      });
+
+      const response = await this.httpClient.post<Contact[]>('/contacts/bulk', { contacts: apiContacts });
       return response.data;
     } catch (error) {
       throw new Error(`Failed to create contacts in bulk: ${this.getErrorMessage(error)}`);
@@ -639,12 +728,47 @@ export class WeSignClient {
   }
 
   private getErrorMessage(error: any): string {
-    if (error.response?.data?.message) {
-      return error.response.data.message;
+    const parts: string[] = [];
+
+    // Add HTTP status code if available
+    if (error.response?.status) {
+      parts.push(`HTTP ${error.response.status}`);
+      if (error.response.statusText) {
+        parts.push(error.response.statusText);
+      }
     }
-    if (error.message) {
-      return error.message;
+
+    // Try to extract message from various response formats
+    if (error.response?.data) {
+      const data = error.response.data;
+
+      // Check common message fields
+      if (data.message) {
+        parts.push(data.message);
+      } else if (data.error) {
+        parts.push(typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
+      } else if (data.Message) {
+        parts.push(data.Message);
+      } else if (data.Error) {
+        parts.push(typeof data.Error === 'string' ? data.Error : JSON.stringify(data.Error));
+      } else if (typeof data === 'string') {
+        parts.push(data);
+      } else {
+        // Include full response body for debugging
+        const dataStr = JSON.stringify(data);
+        if (dataStr.length < 500) {
+          parts.push(`Response: ${dataStr}`);
+        } else {
+          parts.push(`Response too large (${dataStr.length} chars)`);
+        }
+      }
     }
-    return 'Unknown error occurred';
+
+    // Add axios error message if available
+    if (error.message && !parts.some(p => p.includes(error.message))) {
+      parts.push(error.message);
+    }
+
+    return parts.length > 0 ? parts.join(' - ') : 'Unknown error occurred';
   }
 }
